@@ -76,18 +76,25 @@
     .day.hi .day-n { color: var(--teal-dark); }
     .day-sub { font-size: 10px; color: var(--muted); }
 
-    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
     .cbox { background: var(--surface2); border-radius: var(--r-md); padding: .8rem 1rem; }
     .cbox-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
     .leg { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
     .leg span { display: flex; align-items: center; gap: 4px; }
     .ld { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
+    .dup-box { background: var(--surface2); border-radius: var(--r-md); padding: .8rem 1rem; }
+    .dup-empty { font-size: 13px; color: var(--muted); padding: .5rem 0; }
+
     #loading { text-align: center; padding: 3rem; color: var(--muted); }
     #err { background: #FAECE7; color: #993C1D; border-radius: var(--r-md); padding: 1rem; margin-bottom: 1rem; display: none; font-size: 14px; }
     #dash { display: none; }
 
     #attendees-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; }
+    .filters-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-input { font-size: 13px; padding: 5px 10px; border: 0.5px solid var(--border2); border-radius: var(--r-md); background: var(--surface2); color: var(--text); outline: none; flex: 1; min-width: 140px; }
+    .filter-select { font-size: 13px; padding: 5px 10px; border: 0.5px solid var(--border2); border-radius: var(--r-md); background: var(--surface2); color: var(--text); outline: none; cursor: pointer; }
+    .table-count { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th { text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 6px 10px; border-bottom: 0.5px solid var(--border); }
     tbody tr { border-bottom: 0.5px solid var(--border); }
@@ -117,7 +124,6 @@
     <div class="fg"><div class="fg-label">Platform</div><div class="fg-val">Eventbrite <span class="x">✕</span></div></div>
     <div class="fg"><div class="fg-label">City</div><div class="fg-val">Toronto <span class="x">✕</span></div></div>
     <div class="fg"><div class="fg-label">Event series</div><div class="fg-val" id="tb-name">— <span class="x">✕</span></div></div>
-    <div class="fg"><div class="fg-label">Series ID</div><div class="fg-val">1985765937374</div></div>
     <div class="updated">Last updated<br><strong id="tb-updated">—</strong></div>
   </div>
 
@@ -169,12 +175,32 @@
         <div style="position:relative;height:120px"><canvas id="donutChart" role="img" aria-label="Ticket type breakdown">Loading...</canvas></div>
       </div>
     </div>
+
+    <div class="dup-box" style="margin-top:10px">
+      <div class="cbox-lbl">Duplicate ticket buyers</div>
+      <div id="dup-content"></div>
+    </div>
   </div>
 
   <div id="attendees-section">
-    <div class="sec-label" style="margin-bottom:12px">Recent registrations</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="sec-label" style="margin-bottom:0">Registrations</div>
+    </div>
+    <div class="filters-row">
+      <input type="text" id="search-name" class="filter-input" placeholder="Search by name…"/>
+      <select id="filter-status" class="filter-select">
+        <option value="">All statuses</option>
+        <option value="registered">Registered</option>
+        <option value="checked_in">Checked in</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <select id="filter-ticket" class="filter-select">
+        <option value="">All ticket types</option>
+      </select>
+      <span class="table-count" id="table-count"></span>
+    </div>
     <table>
-      <thead><tr><th>Name</th><th>Email</th><th>Ticket</th><th>Registered</th><th>Status</th></tr></thead>
+      <thead><tr><th>Name</th><th>Ticket</th><th>Registered</th><th>Status</th></tr></thead>
       <tbody id="att-tbody"></tbody>
     </table>
   </div>
@@ -182,10 +208,9 @@
 </div>
 
 <script>
-const SERIES_ID = '1985765937374';
-const CHILD_ID  = '1985765960443';
-const PROXY     = '/api/attendees';
-const TCOLS     = ['#1D9E75','#185FA5','#BA7517','#534AB7','#993C1D'];
+const CHILD_ID = '1985765960443';
+const PROXY    = '/api/attendees';
+const TCOLS    = ['#1D9E75','#185FA5','#BA7517','#534AB7','#993C1D'];
 
 async function pFetch(params) {
   const r = await fetch(`${PROXY}?${new URLSearchParams(params)}`);
@@ -216,6 +241,91 @@ function fmt(iso, mode = 'short') {
 
 function ini(f, l) { return ((f?.[0]||'')+(l?.[0]||'')).toUpperCase()||'?'; }
 
+let allAttendees = [];
+
+function renderTable() {
+  const search = document.getElementById('search-name').value.trim().toLowerCase();
+  const status = document.getElementById('filter-status').value;
+  const ticket = document.getElementById('filter-ticket').value;
+
+  const filtered = allAttendees.filter(a => {
+    const f = a.profile?.first_name || '', l = a.profile?.last_name || '';
+    const name = `${f} ${l}`.toLowerCase();
+    if (search && !name.includes(search)) return false;
+    if (status === 'registered' && (a.cancelled || a.checked_in)) return false;
+    if (status === 'checked_in' && !a.checked_in) return false;
+    if (status === 'cancelled' && !a.cancelled) return false;
+    if (ticket && a.ticket_class_name !== ticket) return false;
+    return true;
+  });
+
+  document.getElementById('table-count').textContent = `Showing ${filtered.length} of ${allAttendees.length}`;
+
+  const tbody = document.getElementById('att-tbody');
+  tbody.innerHTML = filtered.map(a => {
+    const f = a.profile?.first_name || '', l = a.profile?.last_name || '';
+    const statusClass = a.cancelled ? 'pill-red' : a.checked_in ? 'pill-blue' : 'pill-green';
+    const statusText  = a.cancelled ? 'Cancelled' : a.checked_in ? 'Checked in' : 'Registered';
+    return `<tr>
+      <td><span class="avatar">${ini(f,l)}</span>${f} ${l}</td>
+      <td>${a.ticket_class_name || 'General'}</td>
+      <td style="color:var(--muted)">${fmt(a.created,'dt')}</td>
+      <td><span class="pill ${statusClass}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDuplicates(attendees) {
+  const groups = {};
+  attendees.forEach(a => {
+    const f = (a.profile?.first_name || '').toLowerCase().trim();
+    const l = (a.profile?.last_name  || '').toLowerCase().trim();
+    const e = (a.profile?.email      || '').toLowerCase().trim();
+    if (!f && !l && !e) return;
+    const key = `${f}|${l}|${e}`;
+    if (!groups[key]) groups[key] = { name: `${a.profile?.first_name || ''} ${a.profile?.last_name || ''}`.trim(), count: 0 };
+    groups[key].count++;
+  });
+
+  const dups = Object.values(groups).filter(g => g.count > 1).sort((a,b) => b.count - a.count);
+  const el = document.getElementById('dup-content');
+
+  if (dups.length === 0) {
+    el.innerHTML = '<div class="dup-empty">No duplicate buyers found — each ticket belongs to a unique person.</div>';
+    return;
+  }
+
+  const totalDupTickets = dups.reduce((s,g) => s + g.count, 0);
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${dups.length} buyer${dups.length>1?'s':''} purchased multiple tickets · ${totalDupTickets} tickets total</div>
+    <div style="position:relative;height:${Math.max(120, dups.length * 32)}px"><canvas id="dupChart"></canvas></div>
+  `;
+
+  new Chart(document.getElementById('dupChart'), {
+    type: 'bar',
+    data: {
+      labels: dups.map(g => g.name || '(unknown)'),
+      datasets: [{
+        label: 'Tickets purchased',
+        data: dups.map(g => g.count),
+        backgroundColor: '#BA7517',
+        borderRadius: 4,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
 async function run() {
   try {
     document.getElementById('loading').style.display = 'block';
@@ -225,6 +335,8 @@ async function run() {
     ]);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('dash').style.display = 'block';
+
+    allAttendees = [...attendees].sort((a,b) => new Date(b.created) - new Date(a.created));
 
     const cap      = ev.capacity || 50;
     const evName   = ev.name?.text || 'Event';
@@ -237,7 +349,7 @@ async function run() {
     const daysTo   = Math.max(0, Math.round((new Date(evDate) - new Date()) / 86400000));
 
     document.getElementById('tb-name').innerHTML = evName + ' <span class="x">✕</span>';
-    document.getElementById('tb-updated').textContent = new Date().toISOString().slice(0,10);
+    document.getElementById('tb-updated').textContent = new Date().toLocaleString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
     document.getElementById('ev-name').innerHTML = evName + ` <span class="badge">${ev.status||'live'}</span>`;
     document.getElementById('ev-loc').textContent = `Lake Ontario, Toronto · ${fmt(evDate,'long')} · ${evDate.slice(11,16)} EDT`;
     document.getElementById('ev-link').href = evUrl;
@@ -248,7 +360,7 @@ async function run() {
     document.getElementById('s-cap').textContent   = `of ${cap} capacity`;
     document.getElementById('s-pct').textContent   = pct + '%';
     document.getElementById('s-rem').textContent   = `${cap - total} spots left`;
-    document.getElementById('s-checked').textContent   = checked;
+    document.getElementById('s-checked').textContent    = checked;
     document.getElementById('s-checked-sub').textContent = total > 0 ? `${Math.round(checked/total*100)}% of regs` : 'event upcoming';
     document.getElementById('s-cancelled').textContent   = cancelled;
     document.getElementById('s-cancel-sub').textContent  = total > 0 ? `${Math.round(cancelled/total*100)}% cancel rate` : '0% cancel rate';
@@ -300,20 +412,20 @@ async function run() {
       options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false } } }
     });
 
-    const recent = [...attendees].sort((a,b)=>new Date(b.created)-new Date(a.created)).slice(0,20);
-    const tbody = document.getElementById('att-tbody');
-    tbody.innerHTML = recent.map(a => {
-      const f = a.profile?.first_name||'', l = a.profile?.last_name||'';
-      const statusClass = a.cancelled ? 'pill-red' : a.checked_in ? 'pill-blue' : 'pill-green';
-      const statusText  = a.cancelled ? 'Cancelled' : a.checked_in ? 'Checked in' : 'Registered';
-      return `<tr>
-        <td><span class="avatar">${ini(f,l)}</span>${f} ${l}</td>
-        <td style="color:var(--muted)">${a.profile?.email||'—'}</td>
-        <td>${a.ticket_class_name||'General'}</td>
-        <td style="color:var(--muted)">${fmt(a.created,'dt')}</td>
-        <td><span class="pill ${statusClass}">${statusText}</span></td>
-      </tr>`;
-    }).join('');
+    // populate ticket filter dropdown
+    const ticketSelect = document.getElementById('filter-ticket');
+    tLabels.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      ticketSelect.appendChild(opt);
+    });
+
+    renderDuplicates(attendees);
+    renderTable();
+
+    document.getElementById('search-name').addEventListener('input', renderTable);
+    document.getElementById('filter-status').addEventListener('change', renderTable);
+    document.getElementById('filter-ticket').addEventListener('change', renderTable);
 
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
