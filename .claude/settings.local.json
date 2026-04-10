@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel dev:*)",
+      "Bash(vercel link:*)",
+      "Bash(curl:*)",
+      "Bash(npm i:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(xxd D:/Projects/EventBrite/.env.local)",
+      "Bash(vercel env:*)",
+      "Bash(vercel:*)"
+    ]
+  }
+}

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Moonlight Mantras — Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f4f3f0;
+      --surface: #ffffff;
+      --surface2: #f1f0ed;
+      --border: rgba(0,0,0,0.1);
+      --border2: rgba(0,0,0,0.18);
+      --text: #1a1a1a;
+      --muted: #6b6b68;
+      --teal: #0F6E56;
+      --teal-bg: #E1F5EE;
+      --teal-dark: #085041;
+      --blue: #185FA5;
+      --blue-bg: #E6F1FB;
+      --amber: #BA7517;
+      --r-md: 8px;
+      --r-lg: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --surface: #272725;
+        --surface2: #2e2e2b;
+        --border: rgba(255,255,255,0.1);
+        --border2: rgba(255,255,255,0.18);
+        --text: #f0ede8;
+        --muted: #9a9894;
+        --teal-bg: #085041;
+        --blue-bg: #0c447c;
+      }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1.5rem; }
+
+    .topbar { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .fg { display: flex; flex-direction: column; gap: 3px; }
+    .fg-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .fg-val { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--r-md); padding: 5px 10px; font-size: 13px; color: var(--text); }
+    .fg-val .x { color: var(--muted); font-size: 11px; cursor: pointer; }
+    .updated { margin-left: auto; font-size: 12px; color: var(--muted); text-align: right; line-height: 1.5; }
+    .updated strong { color: var(--text); font-weight: 500; }
+
+    .event-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; margin-bottom: 1.25rem; }
+    .ev-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px; }
+    .ev-icon { width: 38px; height: 38px; border-radius: 50%; background: var(--teal-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ev-icon svg { width: 18px; height: 18px; stroke: var(--teal); fill: none; stroke-width: 1.5; }
+    .ev-name { font-size: 16px; font-weight: 500; }
+    .ev-loc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; margin-left: 8px; background: var(--teal-bg); color: var(--teal); }
+    .ev-actions { display: flex; gap: 8px; }
+    .abtn { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 12px; border: 0.5px solid var(--border2); border-radius: var(--r-md); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; }
+    .abtn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+    .window-note { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 6px; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+    .stat { background: var(--surface2); border-radius: var(--r-md); padding: .8rem 1rem; }
+    .stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+    .stat-val { font-size: 24px; font-weight: 500; line-height: 1; }
+    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .sec-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .days-row { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; margin-bottom: 1.25rem; }
+    .day { background: var(--surface2); border-radius: var(--r-md); padding: .6rem .5rem; text-align: center; }
+    .day.hi { background: var(--teal-bg); }
+    .day-name { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
+    .day.hi .day-name { color: var(--teal); }
+    .day-n { font-size: 20px; font-weight: 500; }
+    .day.hi .day-n { color: var(--teal-dark); }
+    .day-sub { font-size: 10px; color: var(--muted); }
+
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cbox { background: var(--surface2); border-radius: var(--r-md); padding: .8rem 1rem; }
+    .cbox-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .leg { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
+    .leg span { display: flex; align-items: center; gap: 4px; }
+    .ld { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    #loading { text-align: center; padding: 3rem; color: var(--muted); }
+    #err { background: #FAECE7; color: #993C1D; border-radius: var(--r-md); padding: 1rem; margin-bottom: 1rem; display: none; font-size: 14px; }
+    #dash { display: none; }
+
+    #attendees-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 6px 10px; border-bottom: 0.5px solid var(--border); }
+    tbody tr { border-bottom: 0.5px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 9px 10px; }
+    .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .pill-green { background: var(--teal-bg); color: var(--teal); }
+    .pill-blue  { background: var(--blue-bg); color: var(--blue); }
+    .pill-red   { background: #FAECE7; color: #993C1D; }
+    .avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--teal-bg); color: var(--teal); font-size: 10px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; margin-right: 7px; vertical-align: middle; }
+
+    @media(max-width:700px) {
+      .stats-row { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .days-row  { grid-template-columns: repeat(4, minmax(0,1fr)); }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">Fetching registrations...</div>
+<div id="err"></div>
+<div id="dash">
+
+  <div class="topbar">
+    <div class="fg"><div class="fg-label">Platform</div><div class="fg-val">Eventbrite <span class="x">✕</span></div></div>
+    <div class="fg"><div class="fg-label">City</div><div class="fg-val">Toronto <span class="x">✕</span></div></div>
+    <div class="fg"><div class="fg-label">Event series</div><div class="fg-val" id="tb-name">— <span class="x">✕</span></div></div>
+    <div class="fg"><div class="fg-label">Series ID</div><div class="fg-val">1985765937374</div></div>
+    <div class="updated">Last updated<br><strong id="tb-updated">—</strong></div>
+  </div>
+
+  <div class="event-card">
+    <div class="ev-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="ev-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </div>
+        <div>
+          <div class="ev-name" id="ev-name">— <span class="badge" id="ev-status">live</span></div>
+          <div class="ev-loc" id="ev-loc">—</div>
+        </div>
+      </div>
+      <div class="ev-actions">
+        <a class="abtn" id="ev-link" href="#" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          Eventbrite
+        </a>
+        <a class="abtn" id="maps-link" href="#" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Maps
+        </a>
+      </div>
+    </div>
+
+    <div class="window-note" id="days-note">—</div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-lbl">Total registrations</div><div class="stat-val" id="s-total">—</div><div class="stat-sub" id="s-cap">—</div></div>
+      <div class="stat"><div class="stat-lbl">Capacity filled</div><div class="stat-val" id="s-pct" style="color:var(--teal)">—</div><div class="stat-sub" id="s-rem">—</div></div>
+      <div class="stat"><div class="stat-lbl">Checked in</div><div class="stat-val" id="s-checked">—</div><div class="stat-sub" id="s-checked-sub">—</div></div>
+      <div class="stat"><div class="stat-lbl">Cancelled</div><div class="stat-val" id="s-cancelled">—</div><div class="stat-sub" id="s-cancel-sub">—</div></div>
+      <div class="stat"><div class="stat-lbl">Avg lead time</div><div class="stat-val" id="s-lead">—</div><div class="stat-sub">days before event</div></div>
+      <div class="stat"><div class="stat-lbl">First registration</div><div class="stat-val" id="s-first" style="font-size:15px">—</div><div class="stat-sub" id="s-first-sub">—</div></div>
+    </div>
+
+    <div class="sec-label">Registrations by day of week</div>
+    <div class="days-row" id="days-row"></div>
+
+    <div class="charts-row">
+      <div class="cbox">
+        <div class="cbox-lbl">Cumulative registrations</div>
+        <div style="position:relative;height:150px"><canvas id="lineChart" role="img" aria-label="Cumulative registrations over time">Loading...</canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="cbox-lbl">Ticket breakdown</div>
+        <div class="leg" id="ticket-leg"></div>
+        <div style="position:relative;height:120px"><canvas id="donutChart" role="img" aria-label="Ticket type breakdown">Loading...</canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="attendees-section">
+    <div class="sec-label" style="margin-bottom:12px">Recent registrations</div>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Ticket</th><th>Registered</th><th>Status</th></tr></thead>
+      <tbody id="att-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const SERIES_ID = '1985765937374';
+const CHILD_ID  = '1985765960443';
+const PROXY     = '/api/attendees';
+const TCOLS     = ['#1D9E75','#185FA5','#BA7517','#534AB7','#993C1D'];
+
+async function pFetch(params) {
+  const r = await fetch(`${PROXY}?${new URLSearchParams(params)}`);
+  if (!r.ok) throw new Error(`Proxy error ${r.status}`);
+  return r.json();
+}
+
+async function fetchAll(eventId) {
+  let all = [], cont = null;
+  while (true) {
+    const q = { event_id: eventId };
+    if (cont) q.continuation = cont;
+    const d = await pFetch(q);
+    all = all.concat(d.attendees || []);
+    cont = d.pagination?.continuation;
+    if (!cont) break;
+  }
+  return all;
+}
+
+function fmt(iso, mode = 'short') {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (mode === 'short') return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+  if (mode === 'dt')    return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function ini(f, l) { return ((f?.[0]||'')+(l?.[0]||'')).toUpperCase()||'?'; }
+
+async function run() {
+  try {
+    document.getElementById('loading').style.display = 'block';
+    const [ev, attendees] = await Promise.all([
+      pFetch({ event_id: CHILD_ID, type: 'event' }),
+      fetchAll(CHILD_ID)
+    ]);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+
+    const cap      = ev.capacity || 50;
+    const evName   = ev.name?.text || 'Event';
+    const evDate   = ev.start?.local || '';
+    const evUrl    = ev.url || '#';
+    const total    = attendees.length;
+    const checked  = attendees.filter(a => a.checked_in).length;
+    const cancelled= attendees.filter(a => a.cancelled).length;
+    const pct      = Math.round((total / cap) * 100);
+    const daysTo   = Math.max(0, Math.round((new Date(evDate) - new Date()) / 86400000));
+
+    document.getElementById('tb-name').innerHTML = evName + ' <span class="x">✕</span>';
+    document.getElementById('tb-updated').textContent = new Date().toISOString().slice(0,10);
+    document.getElementById('ev-name').innerHTML = evName + ` <span class="badge">${ev.status||'live'}</span>`;
+    document.getElementById('ev-loc').textContent = `Lake Ontario, Toronto · ${fmt(evDate,'long')} · ${evDate.slice(11,16)} EDT`;
+    document.getElementById('ev-link').href = evUrl;
+    document.getElementById('maps-link').href = `https://maps.google.com/?q=${encodeURIComponent('Lake Ontario Toronto')}`;
+    document.getElementById('days-note').textContent = `Event window · ${daysTo} days to go`;
+
+    document.getElementById('s-total').textContent = total;
+    document.getElementById('s-cap').textContent   = `of ${cap} capacity`;
+    document.getElementById('s-pct').textContent   = pct + '%';
+    document.getElementById('s-rem').textContent   = `${cap - total} spots left`;
+    document.getElementById('s-checked').textContent   = checked;
+    document.getElementById('s-checked-sub').textContent = total > 0 ? `${Math.round(checked/total*100)}% of regs` : 'event upcoming';
+    document.getElementById('s-cancelled').textContent   = cancelled;
+    document.getElementById('s-cancel-sub').textContent  = total > 0 ? `${Math.round(cancelled/total*100)}% cancel rate` : '0% cancel rate';
+
+    const sorted = [...attendees].sort((a,b) => new Date(a.created)-new Date(b.created));
+    const first  = sorted[0];
+    if (first) {
+      document.getElementById('s-first').textContent     = fmt(first.created,'short');
+      document.getElementById('s-first-sub').textContent = new Date(first.created).getFullYear();
+    }
+
+    const evMs = new Date(evDate).getTime();
+    const leads = attendees.map(a => (evMs - new Date(a.created).getTime()) / 86400000).filter(d => d > 0);
+    const avgLead = leads.length ? Math.round(leads.reduce((s,v)=>s+v,0)/leads.length) : 0;
+    document.getElementById('s-lead').textContent = avgLead;
+
+    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dowCounts = [0,0,0,0,0,0,0];
+    attendees.forEach(a => { if (a.created) dowCounts[new Date(a.created).getDay()]++; });
+    const maxDow = Math.max(...dowCounts);
+    const daysRowEl = document.getElementById('days-row');
+    DOW.forEach((d,i) => {
+      const hi = dowCounts[i] === maxDow && maxDow > 0 ? ' hi' : '';
+      daysRowEl.innerHTML += `<div class="day${hi}"><div class="day-name">${d}</div><div class="day-n">${dowCounts[i]}</div><div class="day-sub">regs</div></div>`;
+    });
+
+    const byDay = {};
+    attendees.forEach(a => { const day = (a.created||'').slice(0,10); if(day) byDay[day]=(byDay[day]||0)+1; });
+    const days = Object.keys(byDay).sort();
+    let cum = 0;
+    const cumData = days.map(d => { cum += byDay[d]; return cum; });
+    new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: { labels: days.map(d=>fmt(d+'T00:00','short')), datasets: [{ data: cumData, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.08)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#1D9E75', borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { font:{size:10}, maxRotation:40, autoSkip:true } }, y: { beginAtZero:true, ticks:{stepSize:5,font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} } } }
+    });
+
+    const byTicket = {};
+    attendees.forEach(a => { const t = a.ticket_class_name||'General'; byTicket[t]=(byTicket[t]||0)+1; });
+    const tLabels = Object.keys(byTicket);
+    const tData   = tLabels.map(t=>byTicket[t]);
+    const legEl = document.getElementById('ticket-leg');
+    tLabels.forEach((l,i) => {
+      legEl.innerHTML += `<span><span class="ld" style="background:${TCOLS[i%TCOLS.length]}"></span>${l} (${tData[i]})</span>`;
+    });
+    new Chart(document.getElementById('donutChart'), {
+      type: 'doughnut',
+      data: { labels: tLabels, datasets: [{ data: tData, backgroundColor: TCOLS.slice(0,tLabels.length), borderWidth: 2, borderColor: '#ffffff' }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false } } }
+    });
+
+    const recent = [...attendees].sort((a,b)=>new Date(b.created)-new Date(a.created)).slice(0,20);
+    const tbody = document.getElementById('att-tbody');
+    tbody.innerHTML = recent.map(a => {
+      const f = a.profile?.first_name||'', l = a.profile?.last_name||'';
+      const statusClass = a.cancelled ? 'pill-red' : a.checked_in ? 'pill-blue' : 'pill-green';
+      const statusText  = a.cancelled ? 'Cancelled' : a.checked_in ? 'Checked in' : 'Registered';
+      return `<tr>
+        <td><span class="avatar">${ini(f,l)}</span>${f} ${l}</td>
+        <td style="color:var(--muted)">${a.profile?.email||'—'}</td>
+        <td>${a.ticket_class_name||'General'}</td>
+        <td style="color:var(--muted)">${fmt(a.created,'dt')}</td>
+        <td><span class="pill ${statusClass}">${statusText}</span></td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    const el = document.getElementById('err');
+    el.style.display = 'block';
+    el.textContent = `Error: ${e.message}`;
+  }
+}
+run();
+</script>
+</body>
+</html>
