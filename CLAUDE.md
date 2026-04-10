@@ -49,8 +49,8 @@ The frontend (`index.html`) calls `fetchAll()` which loops through all pages unt
 
 | Constant | Value | Purpose |
 |---|---|---|
-| `SERIES_ID` | `1985765937374` | Eventbrite event series |
-| `CHILD_ID` | `1985765960443` | Specific child event to display |
+| `SERIES_ID` | `******************` | Eventbrite event series |
+| `CHILD_ID` | `**********` | Specific child event to display |
 | `PROXY` | `/api/attendees` | Serverless proxy path |
 
 To switch events, update `CHILD_ID` (and `SERIES_ID` if changing series).
