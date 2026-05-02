@@ -8,7 +8,8 @@
       "Bash(cmd.exe:*)",
       "Bash(xxd D:/Projects/EventBrite/.env.local)",
       "Bash(vercel env:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(git add:*)"
     ]
   }
 }
