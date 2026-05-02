@@ -8,7 +8,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #f4f3f0;
+      --bg: #232220;
       --surface: #ffffff;
       --surface2: #f1f0ed;
       --border: rgba(0,0,0,0.1);
@@ -208,7 +208,7 @@
 </div>
 
 <script>
-const CHILD_ID = '1985765937374';
+const CHILD_ID = '1987746647732';
 const PROXY    = '/api/attendees';
 const TCOLS    = ['#1D9E75','#185FA5','#BA7517','#534AB7','#993C1D'];
 
@@ -342,9 +342,9 @@ async function run() {
     const evName   = ev.name?.text || 'Event';
     const evDate   = ev.start?.local || '';
     const evUrl    = ev.url || '#';
-    const total    = attendees.length;
-    const checked  = attendees.filter(a => a.checked_in).length;
     const cancelled= attendees.filter(a => a.cancelled).length;
+    const total    = attendees.length - cancelled;
+    const checked  = attendees.filter(a => a.checked_in).length;
     const pct      = Math.round((total / cap) * 100);
     const daysTo   = Math.max(0, Math.round((new Date(evDate) - new Date()) / 86400000));
 

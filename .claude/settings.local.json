@@ -9,7 +9,9 @@
       "Bash(xxd D:/Projects/EventBrite/.env.local)",
       "Bash(vercel env:*)",
       "Bash(vercel:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
